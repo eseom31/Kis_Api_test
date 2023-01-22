@@ -1,5 +1,6 @@
 import requests
 import json
+import pymysql
 
 class StockConnection:
     def __init__(self):
@@ -55,3 +56,37 @@ class StockConnection:
 
         res = requests.get(url, headers=headers, params=params)
         return res.json()
+    
+class DB_Handle():
+    def __init__(self, db_name):
+        self.DB_NAME = db_name
+        self.CONN = pymysql.connect(host='localhost',
+                                    user='root',
+                                    password='sp_1234',
+                                    db=self.DB_NAME,
+                                    charset='utf8')
+        self.CUR = self.CONN.cursor()
+        self.COLUMNS = '(code, date, clpr, oppr, hgpr, lwpr, volume, acpr)'
+        print('good')
+    
+    def create_table(self, table_name):
+        '''우리 프로젝트에 맞는 테이블을 생성합니다.'''
+        sql = f'''CREATE TABLE {table_name} (
+            code CHAR(6) NOT NULL PRIMARY KEY,
+            date CHAR(8), 
+            clpr VARCHAR(45),
+            oppr VARCHAR(45),
+            hgpr VARCHAR(45),
+            lwpr VARCHAR(45),
+            volume VARCHAR(45),
+            acpr VARCHAR(45))'''
+        self.CUR.execute(sql)
+        self.commit()
+        
+    def fetch(self, table_name: str, telegram: list):
+        sql = f'INSERT INTO {table_name} {self.COLUMNS} VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+        print(telegram)
+        self.CUR.excute(sql, telegram)
+
+    def commit(self):
+        self.CONN.commit()
