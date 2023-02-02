@@ -1,26 +1,32 @@
 class BackTesting():
-    def __init__(self) -> None:
+    def __init__(self):
         pass
     
-    def month_revenue(self) -> None:
+    def month_revenue(self):
+        '''월평균수익'''
         pass
     
-    def quarter_revenue(self) -> None:
+    def quarter_revenue(self):
+        '''분기별수익'''
         pass
     
-    def year_revenue(self) -> None:
+    def year_revenue(self):
+        '''년도별수익'''
         pass
     
-    def calc_sharp_index(self) -> None:
+    def calc_sharp_index(self):
+        '''샤프지수 계산'''
         pass
     
-    def calc_winning_rate(self) -> None:
+    def calc_winning_rate(self):
+        '''승률 계산'''
         pass
 
 class Utls():
-    def __init__(self) -> None:
+    def __init__(self):
         pass
     
-    def plot(self) -> None:
+    def plot(self):
+        '''data plotting'''
         pass
     
