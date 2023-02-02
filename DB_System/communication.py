@@ -54,7 +54,6 @@ class StockConnection:
                 "fid_input_iscd": no,
                 "fid_org_adj_prc": "0",
                 "fid_period_div_code":period}
-
         res = requests.get(url, headers=headers, params=params)
         return res.json()
     
@@ -105,7 +104,7 @@ class DB_Handle():
         self.CONN.commit()
     
 class DataHandle():
-    def __init__(self) -> None:
+    def __init__(self):
         pass
     
     def moving_average(self, data:pd.DataFrame, column: str, samples=20) -> pd.DataFrame:
