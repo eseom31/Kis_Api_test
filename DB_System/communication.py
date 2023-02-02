@@ -1,6 +1,7 @@
 import requests
 import json
 import pymysql
+import pandas as pd
 
 class StockConnection:
     def __init__(self):
@@ -58,7 +59,7 @@ class StockConnection:
         return res.json()
     
 class DB_Handle():
-    def __init__(self, db_name):
+    def __init__(self, db_name:str):
         self.DB_NAME = db_name
         self.CONN = pymysql.connect(host='localhost',
                                     user='root',
@@ -66,7 +67,8 @@ class DB_Handle():
                                     db=self.DB_NAME,
                                     charset='utf8')
         self.CUR = self.CONN.cursor()
-        self.COLUMNS = """(code, dates, clpr, oppr, hgpr, lwpr, volume, acpr)"""
+        # self.COLUMNS = """(code, dates, clpr, oppr, hgpr, lwpr, volume, acpr)"""
+        self.COLUMNS = ['code', 'dates', 'clpr', 'oppr', 'hgpr', 'lwpr', 'volume', 'acpr']
         print('good')
     
     def create_table(self, table_name):
@@ -85,10 +87,34 @@ class DB_Handle():
         
     def insert(self, table_name: str, telegram: list):
         vals = tuple(telegram)
-        sql = f"""INSERT INTO {table_name} {self.COLUMNS} 
+        sql = f"""INSERT INTO {table_name} ({str(', '.join(self.COLUMNS))}) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
         self.CUR.execute(sql, vals)
         self.commit()
 
+    def fetch(self, sql: str) -> pd.DataFrame:
+        '''sql 형식에 맞춰 DB data를 fetch합니다.
+        **args
+        -sql: DB DML언어(posco BI matrix sql문과 같습니다)'''
+        self.CUR.execute(sql)
+        df = pd.DataFrame(columns=self.COLUMNS, data=self.CUR.fetchall(), dtype='Int64')
+        df['dates'] = pd.to_datetime(df['dates'], format='%Y%m%d')
+        return df
+
     def commit(self):
         self.CONN.commit()
+    
+class DataHandle():
+    def __init__(self) -> None:
+        pass
+    
+    def moving_average(self, data:pd.DataFrame, column: str, samples=20) -> pd.DataFrame:
+        '''data의 종가 기준 단순이동평균을 구하여 column을 추가한 df객체를 return합니다.
+        **args
+        -data: 말안해도 알쥬?
+        -column: 설정할 열이름
+        -samples: 이동평균할 sample 개수 (default=20)'''
+        data[column] = data['clpr'].rolling(samples).mean()
+        data.dropna(inplace=True)
+        data.reset_index(inplace=True, drop=True)
+        return data
