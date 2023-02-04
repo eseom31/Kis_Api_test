@@ -96,28 +96,45 @@ class DB_Handle():
         **args
         -sql: DB DML언어(posco BI matrix sql문과 같습니다)
         **return
-        -pd.DataFrame형식의 객체'''
+        tuple of tuple'''
         self.CUR.execute(sql)
-        df = pd.DataFrame(columns=self.COLUMNS, data=self.CUR.fetchall(), dtype='Int64')
-        df['dates'] = pd.to_datetime(df['dates'], format='%Y%m%d')
-        return df
+        return self.CUR.fetchall()
+        
 
     def commit(self):
         self.CONN.commit()
     
 class DataHandle():
     def __init__(self):
-        pass
+        self.KOSPI_CODES = self.read_json('./SRC/kospi_codes.json')['회사명']
+        self.KODAQ_CODES = self.read_json('./SRC/kosdaq_codes.json')['회사명']
     
-    def moving_average(self, data:pd.DataFrame, column: str, samples=20):
-        '''data의 종가 기준 단순이동평균을 구하여 column을 추가한 df객체를 return합니다.
+    def __call__(self, src: tuple):
+        '''fetch된 데이터를 활용해 dataframe객체를 생성합니다.
+        **args
+        -src: fetch된 data
+        **return
+        -pd.dataframe 객체'''
+        rawcols = ['코드', '날짜', '종가', '시가', '최고가', '최저가', '누적거래량', '누적거래대금']
+        df = pd.DataFrame(columns=rawcols, data=src, dtype='Int64')
+        df['날짜'] = pd.to_datetime(df['날짜'], format='%Y%m%d')
+        return df
+    
+    def read_json(self, path:str):
+        with open(path, 'r', encoding='utf-8') as file:
+            res = json.load(file)
+        return res
+    
+    def moving_average(self, data:pd.DataFrame, colname: str, utilname: str,samples=20):
+        '''data 내 원하는 정보를 활용해 단순이동평균을 구하여 column을 추가한 df객체를 return합니다.
         **args
         -data: 말안해도 알쥬?
-        -column: 설정할 열이름
+        -colname: 설정할 열이름
+        -utilname: 이동평균할 열 이름
         -samples: 이동평균할 sample 개수 (default=20)
         **return
         -pd.DataFrame형식의 객체'''
-        data[column] = data['clpr'].rolling(samples).mean()
+        data[colname] = data[utilname].rolling(samples).mean()
         data.dropna(inplace=True)
         data.reset_index(inplace=True, drop=True)
         return data
