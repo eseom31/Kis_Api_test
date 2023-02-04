@@ -121,6 +121,7 @@ class DataHandle(DB_Handle):
         -pd.dataframe 객체'''
         rawcols = ['코드', '날짜', '종가', '시가', '최고가', '최저가', '누적거래량', '누적거래대금']
         df = pd.DataFrame(columns=rawcols, data=src, dtype='Int64')
+        df['코드'] = df['코드'].apply(lambda x: str(x).zfill(6))
         df['날짜'] = pd.to_datetime(df['날짜'], format='%Y%m%d')
         return df
         
@@ -133,7 +134,7 @@ class DataHandle(DB_Handle):
                     period: 'str' = None, 
                     start: 'str' = None,
                     end: 'str' = None,
-                    companys: 'str | list' = 'all'):
+                    companys: 'str | list[str]' = 'all'):
         '''우리 project에 맞춰 DB에서 data를 fetch합니다.
         **args
         -market: 'kospi'와 'kosdaq'중 db연결 설정에 맞춰 입력합니다.
@@ -151,7 +152,7 @@ class DataHandle(DB_Handle):
             sql = f'''select {buf_period} from {company} '''
             res = self.fetch_base(sql)
             results.append(self.__call__(res))
-        return pd.concat(results)
+        return pd.concat(results).reset_index(drop=True)
 
     def moving_average(self, data:pd.DataFrame, colname: str, utilname: str,samples=20):
         '''data 내 원하는 정보를 활용해 단순이동평균을 구하여 column을 추가한 df객체를 return합니다.
@@ -166,3 +167,15 @@ class DataHandle(DB_Handle):
         data.dropna(inplace=True)
         data.reset_index(inplace=True, drop=True)
         return data
+
+    # def add_cols(self,
+    #             src: 'pd.DataFrame', 
+    #             cols: 'list[str] | str',
+    #             contents: 'list'):
+    #     '''행 내용을 추가 합니다
+    #     **args
+    #     -cols: 설정할 열 이름입니다. 여려개이면 list of str형식으로 넣어주세요
+    #     -contents: 추가할 내용입니다. 여러개일시 cols 개수와 맞추어 주세요
+    #     **return
+    #     -pd.DataFrame 객체를 반환합니다'''
+    #     return pd.concat([src, pd.DataFrame(columns=cols, data=contents)], axis=1)
