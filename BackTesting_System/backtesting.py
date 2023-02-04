@@ -15,7 +15,7 @@ class BackTesting():
         pass
     
     def calc_mdd(self, start, end, code):
-        '''MDD 계산을 실시합니다.
+        '''MDD(Maximum Drawdown) 계산을 실시합니다.
         MDD 계산 수식: (조회기간 내 최고가격 - 조회기간 내 최저가격) / 조회기간 내 최고가격 * 100.0
         **args
         -start:

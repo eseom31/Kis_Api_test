@@ -68,7 +68,11 @@ class DB_Handle():
         self.CUR = self.CONN.cursor()
         # self.COLUMNS = """(code, dates, clpr, oppr, hgpr, lwpr, volume, acpr)"""
         self.COLUMNS = ['code', 'dates', 'clpr', 'oppr', 'hgpr', 'lwpr', 'volume', 'acpr']
-        print('good')
+    
+    def read_json(self, path:str):
+        with open(path, 'r', encoding='utf-8') as file:
+            res = json.load(file)
+        return res
     
     def create_table(self, table_name):
         '''우리 프로젝트에 맞는 테이블을 생성합니다.'''
@@ -91,7 +95,7 @@ class DB_Handle():
         self.CUR.execute(sql, vals)
         self.commit()
 
-    def fetch(self, sql: str):
+    def fetch_base(self, sql: str):
         '''sql 형식에 맞춰 DB data를 fetch합니다.
         **args
         -sql: DB DML언어(posco BI matrix sql문과 같습니다)
@@ -99,7 +103,31 @@ class DB_Handle():
         tuple of tuple'''
         self.CUR.execute(sql)
         return self.CUR.fetchall()
-        
+    
+    def fetch_for_pjt(self,
+                    period: 'str' = None, 
+                    start: 'str' = None,
+                    end: 'str' = None,
+                    companys: 'str | list' = 'all'):
+        '''우리 project에 맞춰 DB에서 data를 fetch합니다.
+        **args
+        -market: 'kospi'와 'kosdaq'중 db연결 설정에 맞춰 입력합니다.
+        -period: 파라미터에 'all'을 설정시 database에 저장된 회사별 최장기간이 자동으로 설정됩니다
+        -start: datetime형식으로 시작 날짜 입니다 예)'20200101'
+        -end: datetime형식으로 종료 날짜 입니다 예)'20200131'
+        -codes: 전체 회사 설정하고 싶을때 'all'입력하고, 개별적으로 설정시 list형식으로 회사이름를 기재하여 입력합니다.
+        **return
+        -pd.DataFrame 객체
+        '''
+        dh = DataHandle()
+        results = []
+        buf_companys = list(self.read_json(path=f'./SRC/{self.DB_NAME[:-4]}_codes.json')['회사명'].values()) if companys == 'all' else companys
+        buf_period = '*' if period == 'all' else None
+        for company in buf_companys:
+            sql = f'''select {buf_period} from {company} '''
+            res = self.fetch_base(sql)
+            results.append(dh(res))
+        return pd.concat(results)    
 
     def commit(self):
         self.CONN.commit()
@@ -138,3 +166,19 @@ class DataHandle():
         data.dropna(inplace=True)
         data.reset_index(inplace=True, drop=True)
         return data
+    
+
+        # if period == 'all':
+        #     if columns == 'all':
+        #         pass
+        # else:
+            
+        #     else:
+        #         pass
+        # else:
+        #     if columns == 'all':
+        #         pass
+        #     else:
+        #         pass
+        
+            
