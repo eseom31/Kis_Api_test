@@ -123,18 +123,7 @@ class DataHandle(DB_Handle):
         df = pd.DataFrame(columns=rawcols, data=src, dtype='Int64')
         df['날짜'] = pd.to_datetime(df['날짜'], format='%Y%m%d')
         return df
-    
-    def test(self, src: tuple):
-        '''fetch된 데이터를 활용해 dataframe객체를 생성합니다.
-        **args
-        -src: fetch된 data
-        **return
-        -pd.dataframe 객체'''
-        rawcols = ['코드', '날짜', '종가', '시가', '최고가', '최저가', '누적거래량', '누적거래대금']
-        df = pd.DataFrame(columns=rawcols, data=src, dtype='Int64')
-        df['날짜'] = pd.to_datetime(df['날짜'], format='%Y%m%d')
-        return df
-    
+        
     def read_json(self, path:str):
         with open(path, 'r', encoding='utf-8') as file:
             res = json.load(file)
