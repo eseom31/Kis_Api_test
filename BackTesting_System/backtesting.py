@@ -65,7 +65,7 @@ class BackTesting:
         self.jounal['매매비용'] = 0
         self.jounal['매매구분'] = '매수'
         
-    
+
     def sell(self):
         pass
     
