@@ -1,5 +1,7 @@
-from typing import List
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from typing import List
 from copy import deepcopy
 
 class EconomicIndicators:
@@ -140,13 +142,18 @@ class BackTesting(logSystem):
                     
             
     
-class Utls():
+class Utils:
     def __init__(self):
         pass
     
-    def sort_df_by_day(self):
-        pass
-    
-    def plot(self):
+    def making_mt_plot(self,
+                    handle_data: 'pd.DataFrame',
+                    code: 'str',
+                    jounal: 'pd.DataFrame' = None):
         '''data plotting'''
-        pass
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=handle_data['날짜'], 
+                                y=handle_data[handle_data['코드'] == code]['종가'],
+                                mode='markers',
+                                name='종가'))
+        return fig
