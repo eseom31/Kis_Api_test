@@ -141,7 +141,7 @@ class DataHandle(DB_Handle):
         -period: 파라미터에 'all'을 설정시 database에 저장된 회사별 최장기간이 자동으로 설정됩니다
         -start: datetime형식으로 시작 날짜 입니다 예)'20200101'
         -end: datetime형식으로 종료 날짜 입니다 예)'20200131'
-        -codes: 전체 회사 설정하고 싶을때 'all'입력하고, 개별적으로 설정시 list형식으로 회사이름를 기재하여 입력합니다.
+        -companys: 전체 회사 설정하고 싶을때 'all'입력하고, 개별적으로 설정시 list형식으로 회사이름를 기재하여 입력합니다.
         **return
         -pd.DataFrame 객체
         '''
