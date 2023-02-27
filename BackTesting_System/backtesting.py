@@ -3,6 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from typing import List
 from copy import deepcopy
+from datetime import datetime
 
 class EconomicIndicators:
     def __init__(self):
@@ -180,14 +181,47 @@ class Utils:
     def __init__(self):
         pass
     
+    def deduplication_dates(self,
+                            code,
+                            jounal):
+        '''dates 중복제거 매수매수 매도'''
+        dates = []
+        buf = []
+        for _, row in jounal[jounal['종목코드'] == code].iterrows():
+            if len(buf) == 2:
+                duf_copy = deepcopy(buf)
+                dates.append(duf_copy)
+                buf.clear()
+            if not buf:
+                if row['매매구분'] == '매수':
+                    buf.append(row['날짜'])
+            if row['매매구분'] == '매도':
+                buf.append(row['날짜'])
+        return dates
+            
     def making_mt_plot(self,
                     handle_data: 'pd.DataFrame',
                     code: 'str',
                     jounal: 'pd.DataFrame' = None):
         '''data plotting'''
+        handle_data_copy = deepcopy(handle_data) 
+        hd = handle_data_copy[handle_data_copy['코드'] == code]
+        jounal_copy = deepcopy(jounal)
+        dates = self.deduplication_dates(code=code, jounal=jounal_copy)
+        # hd['날짜'] = hd['날짜'].apply(lambda x : datetime.strftime(x, '%Y-%m-%d'))
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=handle_data['날짜'], 
-                                y=handle_data[handle_data['코드'] == code]['종가'],
-                                mode='markers',
-                                name='종가'))
+        fig.add_trace(go.Candlestick(x=hd['날짜'], 
+                                open=hd['시가'],
+                                high=hd['최고가'],
+                                low=hd['최저가'],
+                                close=hd['종가']))
+        fig.layout = dict(title='종목명: ' + str(hd['종목명'].unique()) + '  |  코드: ' + code, 
+                        xaxis = dict(type="category", 
+                        categoryorder='category ascending'))
+        fig.update_xaxes(nticks=5)
+        fig.update_layout(width=1000, height=500)
+        for buy_date, sell_date in dates:
+            print(buy_date, sell_date)
+            fig.add_vrect(x0=buy_date, x1=sell_date, 
+                        fillcolor="gray", opacity=0.25, line_width=0)
         return fig
