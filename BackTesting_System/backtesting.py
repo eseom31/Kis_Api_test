@@ -79,11 +79,11 @@ class logSystem:
     
     def update_information(self):
         '''Jounal Data 전체를 이용하여 portfolio를 갱신합니다'''
+        self.ASSET_INFM.clear()
+        self.ECONO_INFORM.drop(self.ECONO_INFORM.index, inplace=True, errors='ignore')
         for date in self.JOUNAL['날짜'].unique():
             contents = self.JOUNAL[self.JOUNAL['날짜'] == date]
             tot_buy = contents[contents['매매구분']=='매수'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
-            print(date)
-            # print(self.ASSET_INFM)
             tot_sell = contents[contents['매매구분']=='매도'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
             deviation = contents[contents['매매구분']=='매도'].apply(lambda x: (x['체결단가'] * x['체결수량']) - (self.ASSET_INFM[x['종목코드']]['평단가'] * self.ASSET_INFM[x['종목코드']]['수량']), axis=1).sum()  
             real_profit = deviation if '매도' in list(contents['매매구분']) else 0.0
@@ -92,7 +92,7 @@ class logSystem:
                 '매수총합': tot_buy,
                 '매도총합': tot_sell,
                 '매매비용': contents['매매비용'].sum(),
-                '실현손익': real_profit}) #deviation if deviation > 0 else 0})
+                '실현손익': real_profit})
             self.ECONO_INFORM = pd.concat([self.ECONO_INFORM, buf.to_frame().T], ignore_index=True)
             for sales_class in ['매도', '매수']:    
                 for _, row in contents[contents['매매구분']==sales_class].iterrows():
@@ -118,62 +118,18 @@ class BackTesting(logSystem):
             self.ASSET[code]['수량'] -= amount
         self.ASSET = {key: val for key, val in self.ASSET.items() if val['수량'] != 0}
 
-    def buy(self,
-            df: 'pd.DataFrame',
-            target: 'str'):
-        '''asset 관리
-        money 갱신만 실시
-        위탁수수료 0.0140527%로 계산 ##선민이형 확인 필요'''
-        hd = deepcopy(df)
-        
-        for (_, trg), group_df in hd.groupby(['날짜', target], sort=True):
-            if trg == True:
-                tot_price = 0
-                for _, data in group_df.iterrows():
-                    tot_price += data['종가'] * data['구매수량']
-                if tot_price < self.MONEY:        
-                    for _, data in group_df.iterrows():
-                        inform = [data['날짜'],
-                                    str(data['코드']).zfill(6),
-                                    data['종가'],
-                                    data['구매수량'],
-                                    round(data['종가'] * data['구매수량'] * 0.00140527, 0),  
-                                    '매수']
-                        self.write_jounal(inform=inform)    
-                        self.MONEY -= data['종가'] * data['구매수량'] + round(data['종가'] * data['구매수량'] * 0.00140527, 0)
-                        self.upsert_asset(code=str(data['코드']).zfill(6), amount=data['구매수량'], sales_class='매수')
-                        
-
-    def sell(self,
-            df: 'pd.DataFrame',
-            target: 'str'):
-        '''asset 관리
-        money 갱신만 실시
-        위탁수수료 0.0140527%로 계산 ##선민이형 확인 필요'''
-        hd = deepcopy(df)
-        for (_, trg), group_df in hd.groupby(['날짜', target], sort=True):
-            if trg == True:                
-                for _, data in group_df.iterrows():
-                    inform = [data['날짜'],
-                                str(data['코드']).zfill(6),
-                                data['종가'],
-                                self.ASSET[str(data['코드']).zfill(6)],
-                                round(data['종가'] * self.ASSET[str(data['코드']).zfill(6)] * 0.00140527, 0),  
-                                '매도']
-                    self.write_jounal(inform=inform)    
-                    self.MONEY += data['종가'] * self.ASSET[str(data['코드']).zfill(6)] - round(data['종가'] * self.ASSET[str(data['코드']).zfill(6)] * 0.00140527, 0)
-                    self.upsert_asset(code=str(data['코드']).zfill(6), amount=self.ASSET[str(data['코드']).zfill(6)], sales_class='매도')
                     
     def buy_sell(self,
                 df: 'pd.DataFrame',
                 buy: 'str',
                 sell: 'str'):
-        self.test = {}
-        hd = deepcopy(df)        
+        hd = deepcopy(df)  
+        self.ASSET.clear()
+        self.JOUNAL.drop(self.JOUNAL.index, inplace=True, errors='ignore')  
         for (day, buy, sell), group_df in hd.groupby(['날짜', buy, sell], sort=True):
-            try:
-                if sell == True:                
-                    for _, data in group_df.iterrows():
+            if sell == True:                
+                for _, data in group_df.iterrows():
+                    if data['코드'] in self.ASSET:
                         inform = [data['날짜'],
                                 str(data['코드']).zfill(6),
                                 data['종가'],
@@ -183,25 +139,21 @@ class BackTesting(logSystem):
                         self.write_jounal(inform=inform)    
                         self.MONEY += data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'] - round(data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'] * 0.00140527, 0)
                         self.upsert_asset(code=str(data['코드']).zfill(6), amount=self.ASSET[str(data['코드']).zfill(6)]['수량'], sales_class='매도')     
-                        self.test[day] = deepcopy(self.ASSET)
-                if buy == True:
-                    tot_price = 0
+            if buy == True:
+                tot_price = 0
+                for _, data in group_df.iterrows():
+                    tot_price += data['종가'] * data['구매수량']
+                if tot_price < self.MONEY:        
                     for _, data in group_df.iterrows():
-                        tot_price += data['종가'] * data['구매수량']
-                    if tot_price < self.MONEY:        
-                        for _, data in group_df.iterrows():
-                            inform = [data['날짜'],
-                                    str(data['코드']).zfill(6),
-                                    data['종가'],
-                                    data['구매수량'],
-                                    round(data['종가'] * data['구매수량'] * 0.00140527, 0),  
-                                    '매수']
-                            self.write_jounal(inform=inform)    
-                            self.MONEY -= data['종가'] * data['구매수량'] + round(data['종가'] * data['구매수량'] * 0.00140527, 0)
-                            self.upsert_asset(code=str(data['코드']).zfill(6), amount=data['구매수량'], sales_class='매수', price=data['종가'])
-                            self.test[day] = deepcopy(self.ASSET)         
-            except:
-                pass
+                        inform = [data['날짜'],
+                                str(data['코드']).zfill(6),
+                                data['종가'],
+                                data['구매수량'],
+                                round(data['종가'] * data['구매수량'] * 0.00140527, 0),  
+                                '매수']
+                        self.write_jounal(inform=inform)    
+                        self.MONEY -= data['종가'] * data['구매수량'] + round(data['종가'] * data['구매수량'] * 0.00140527, 0)
+                        self.upsert_asset(code=str(data['코드']).zfill(6), amount=data['구매수량'], sales_class='매수', price=data['종가'])       
             
 class Utils:
     def __init__(self):
@@ -234,7 +186,7 @@ class Utils:
         hd = handle_data_copy[handle_data_copy['코드'] == code]
         jounal_copy = deepcopy(jounal)
         dates = self.deduplication_dates(code=code, jounal=jounal_copy)
-        # hd['날짜'] = hd['날짜'].apply(lambda x : datetime.strftime(x, '%Y-%m-%d'))
+        # hd['날짜'] = hd['날짜'].apply(lambda x : datetime.strftime(x, '%Y-%m-%d'))  #for DB structure
         fig = go.Figure()
         fig.add_trace(go.Candlestick(x=hd['날짜'], 
                                 open=hd['시가'],
@@ -251,3 +203,50 @@ class Utils:
             fig.add_vrect(x0=buy_date, x1=sell_date, 
                         fillcolor="gray", opacity=0.25, line_width=0)
         return fig
+    
+    
+        # def buy(self,
+    #         df: 'pd.DataFrame',
+    #         target: 'str'):
+    #     '''asset 관리
+    #     money 갱신만 실시
+    #     위탁수수료 0.0140527%로 계산 ##선민이형 확인 필요'''
+    #     hd = deepcopy(df)
+        
+    #     for (_, trg), group_df in hd.groupby(['날짜', target], sort=True):
+    #         if trg == True:
+    #             tot_price = 0
+    #             for _, data in group_df.iterrows():
+    #                 tot_price += data['종가'] * data['구매수량']
+    #             if tot_price < self.MONEY:        
+    #                 for _, data in group_df.iterrows():
+    #                     inform = [data['날짜'],
+    #                                 str(data['코드']).zfill(6),
+    #                                 data['종가'],
+    #                                 data['구매수량'],
+    #                                 round(data['종가'] * data['구매수량'] * 0.00140527, 0),  
+    #                                 '매수']
+    #                     self.write_jounal(inform=inform)    
+    #                     self.MONEY -= data['종가'] * data['구매수량'] + round(data['종가'] * data['구매수량'] * 0.00140527, 0)
+    #                     self.upsert_asset(code=str(data['코드']).zfill(6), amount=data['구매수량'], sales_class='매수')
+                        
+
+    # def sell(self,
+    #         df: 'pd.DataFrame',
+    #         target: 'str'):
+    #     '''asset 관리
+    #     money 갱신만 실시
+    #     위탁수수료 0.0140527%로 계산 ##선민이형 확인 필요'''
+    #     hd = deepcopy(df)
+    #     for (_, trg), group_df in hd.groupby(['날짜', target], sort=True):
+    #         if trg == True:                
+    #             for _, data in group_df.iterrows():
+    #                 inform = [data['날짜'],
+    #                             str(data['코드']).zfill(6),
+    #                             data['종가'],
+    #                             self.ASSET[str(data['코드']).zfill(6)],
+    #                             round(data['종가'] * self.ASSET[str(data['코드']).zfill(6)] * 0.00140527, 0),  
+    #                             '매도']
+    #                 self.write_jounal(inform=inform)    
+    #                 self.MONEY += data['종가'] * self.ASSET[str(data['코드']).zfill(6)] - round(data['종가'] * self.ASSET[str(data['코드']).zfill(6)] * 0.00140527, 0)
+    #                 self.upsert_asset(code=str(data['코드']).zfill(6), amount=self.ASSET[str(data['코드']).zfill(6)], sales_class='매도')
