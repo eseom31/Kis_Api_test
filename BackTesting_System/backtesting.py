@@ -118,7 +118,6 @@ class BackTesting(logSystem):
             self.ASSET[code]['수량'] -= amount
         self.ASSET = {key: val for key, val in self.ASSET.items() if val['수량'] != 0}
 
-                    
     def buy_sell(self,
                 df: 'pd.DataFrame',
                 buy: 'str',
@@ -184,8 +183,9 @@ class Utils:
         '''data plotting'''
         handle_data_copy = deepcopy(handle_data) 
         hd = handle_data_copy[handle_data_copy['코드'] == code]
-        jounal_copy = deepcopy(jounal)
-        dates = self.deduplication_dates(code=code, jounal=jounal_copy)
+        if jounal is not None:
+            jounal_copy = deepcopy(jounal)
+            dates = self.deduplication_dates(code=code, jounal=jounal_copy)
         # hd['날짜'] = hd['날짜'].apply(lambda x : datetime.strftime(x, '%Y-%m-%d'))  #for DB structure
         fig = go.Figure()
         fig.add_trace(go.Candlestick(x=hd['날짜'], 
