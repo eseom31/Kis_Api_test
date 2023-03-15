@@ -83,7 +83,7 @@ class logSystem:
             contents = self.JOUNAL[self.JOUNAL['날짜'] == date]
             tot_buy = contents[contents['매매구분']=='매수'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
             tot_sell = contents[contents['매매구분']=='매도'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
-            deviation = contents[contents['매매구분']=='매도'].apply(lambda x: (x['체결단가'] * x['체결수량']) - (self.ASSET_INFM[x['종목코드']]['평단가'] * self.ASSET_INFM[x['종목코드']]['수량']), axis=1).sum()  
+            deviation = contents[contents['매매구분']=='매도'].apply(lambda x: (x['체결단가'] - self.ASSET_INFM[x['종목코드']]['평단가']) * x['체결수량'] - x['매매비용'], axis=1).sum()  
             real_profit = deviation if '매도' in list(contents['매매구분']) else 0.0
             buf = pd.Series({
                 '날짜': date,
