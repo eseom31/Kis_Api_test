@@ -46,7 +46,7 @@ def calc_sharp_index():
 def calc_winning_rate():
     '''승률 계산'''
     pass
-    
+
 
 
 class logSystem:
@@ -56,17 +56,17 @@ class logSystem:
         self.ASSET_INFM = {}
         
     def upsert_asset_infm(self,
-                    code,
-                    amount,
-                    sales_class,
+                    code: 'int',
+                    amount: 'int',
+                    sales_class: 'str',
                     price=None):
         if not code in self.ASSET_INFM.keys():  
             self.ASSET_INFM[code] = {'평단가': price, '수량': amount}
         elif sales_class == '매수':
             self.ASSET_INFM[code]['평단가'] = ((self.ASSET_INFM[code]['평단가'] * self.ASSET_INFM[code]['수량']) + (price * amount)) / (self.ASSET_INFM[code]['수량'] + amount)
-            self.ASSET_INFM[code]['수량'] += amount
+            self.ASSET_INFM[code]['수량'] +=  amount
         else:
-            self.ASSET_INFM[code]['수량'] -= amount
+            self.ASSET_INFM[code]['수량'] -=  amount
         self.ASSET_INFM = {key: val for key, val in self.ASSET_INFM.items() if val['수량'] != 0}
     
     def write_jounal(self, 
@@ -83,7 +83,7 @@ class logSystem:
             contents = self.JOUNAL[self.JOUNAL['날짜'] == date]
             tot_buy = contents[contents['매매구분']=='매수'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
             tot_sell = contents[contents['매매구분']=='매도'][['체결단가', '체결수량']].apply(lambda x: x.prod(), axis=1).sum()
-            deviation = contents[contents['매매구분']=='매도'].apply(lambda x: (x['체결단가'] - self.ASSET_INFM[x['종목코드']]['평단가']) * x['체결수량'] - x['매매비용'], axis=1).sum()  
+            deviation = contents[contents['매매구분']=='매도'].apply(lambda x: ((x['체결단가'] - self.ASSET_INFM[x['종목코드']]['평단가']) * x['체결수량']) - x['매매비용'], axis=1).sum()  
             real_profit = deviation if '매도' in list(contents['매매구분']) else 0.0
             buf = pd.Series({
                 '날짜': date,
@@ -96,6 +96,7 @@ class logSystem:
                 for _, row in contents[contents['매매구분']==sales_class].iterrows():
                     self.upsert_asset_infm(code=row['종목코드'], amount=row['체결수량'], sales_class=sales_class, price=row['체결단가'])
                     
+                    
 class BackTesting(logSystem):
     def __init__(self):
         super().__init__()
@@ -103,17 +104,19 @@ class BackTesting(logSystem):
         self.ASSET = {}
     
     def calc_tax(self,
-            price: float,
-            sales_class: str):
+            price: 'float',
+            sales_class: 'str',
+            used_slippage: 'bool' = False):
         commission = 0.0140527 * 0.01 #위탁 수수료
         gov_fee = 0.0036396 * 0.01 #유관기관 수수료
         tax = 0.2 * 0.01  #증권거레세
+        slippage = 1.0 * 0.01
         if sales_class == '매수':
             res = price * (commission + gov_fee)
         elif sales_class == '매도':
-            res = price * (commission + gov_fee + tax)
+            res = price * (commission + gov_fee + tax) if used_slippage == False else price * (commission + gov_fee + tax + slippage)
         return round(res, 0)
-        
+
     def upsert_asset(self,
                 code,
                 amount,
@@ -131,18 +134,17 @@ class BackTesting(logSystem):
     def buy_sell(self,
                 df: 'pd.DataFrame',
                 buy: 'str',
-                sell: 'str'):
+                sell: 'str',
+                use_slippage: 'bool' = False):
         hd = deepcopy(df)  
         self.ASSET.clear()
         self.JOUNAL.drop(self.JOUNAL.index, inplace=True, errors='ignore')  
-        self.test = []
         for (day, buy), group_df in tqdm(hd.groupby(['날짜', buy], sort=True)):
-            print(day)
             if buy != True:
                 for _, data in group_df.iterrows():                
                     if data['코드'] in self.ASSET:
-                        if (data['sell'] == True) or (self.ASSET[data['코드']]['평단가'] - 2 * data['ATR'] > data['종가']):
-                            tot_fee = self.calc_tax(price=data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'], sales_class='매도')                    
+                        if (data[sell] == True) or (self.ASSET[data['코드']]['평단가'] - 2 * data['ATR'] > data['종가']):
+                            tot_fee = self.calc_tax(price=data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'], sales_class='매도', used_slippage=use_slippage)                    
                             inform = [data['날짜'],
                                     str(data['코드']).zfill(6),
                                     data['종가'],
@@ -150,7 +152,7 @@ class BackTesting(logSystem):
                                     tot_fee,  
                                     '매도']
                             self.write_jounal(inform=inform)    
-                            self.MONEY += (data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'] - tot_fee)
+                            self.MONEY +=  (data['종가'] * self.ASSET[str(data['코드']).zfill(6)]['수량'] - tot_fee)
                             self.upsert_asset(code=str(data['코드']).zfill(6), amount=self.ASSET[str(data['코드']).zfill(6)]['수량'], sales_class='매도')     
             if buy == True:
                 available_price = deepcopy(self.MONEY)
@@ -161,19 +163,9 @@ class BackTesting(logSystem):
                 availabel_codes = {}
                 for k, v in price_by_unit.items():
                     if (available_price - v >= 0) and (group_df[group_df['코드']==k]['종가'].iloc[0] < v):
-                        # print('-'*50)
-                        # print(risk_by_1)
-                        # print(day)
-                        # print(len(price_by_unit))
-                        # print(k, v, available_price - v , int(v / group_df[group_df['코드']==k]['종가'].iloc[0]))
                         nums = int(v / group_df[group_df['코드']==k]['종가'].iloc[0])
                         availabel_codes[k] = nums
                         available_price -= v
-                # print(availabel_codes)
-                
-                # for _, data in group_df.iterrows():
-                #     tot_price += data['종가'] * data['구매수량']
-                # if tot_price < self.MONEY:        
                 for _, data in group_df.iterrows():
                     if data['코드'] in list(availabel_codes.keys()): 
                         tot_fee = self.calc_tax(price=data['종가'] * availabel_codes[data['코드']], sales_class='매수')
@@ -184,10 +176,10 @@ class BackTesting(logSystem):
                                 tot_fee,  
                                 '매수']
                         self.write_jounal(inform=inform)    
-                        self.MONEY -= (data['종가'] * availabel_codes[data['코드']] + tot_fee)
+                        self.MONEY -=  (data['종가'] * availabel_codes[data['코드']] + tot_fee)
                         self.upsert_asset(code=str(data['코드']).zfill(6), amount=availabel_codes[data['코드']], sales_class='매수', price=data['종가'])       
-            test = deepcopy(self.ECONO_INFORM['실현손익'].sum())
-            self.test.append([day, test, self.MONEY])
+            
+            
 class Utils:
     def __init__(self):
         pass
