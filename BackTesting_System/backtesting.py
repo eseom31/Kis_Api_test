@@ -56,10 +56,19 @@ class logSystem:
         self.ASSET_INFM = {}
         
     def upsert_asset_infm(self,
-                    code: 'int',
+                    code: 'str',
                     amount: 'int',
                     sales_class: 'str',
-                    price=None):
+                    price = None):
+        '''Log System Class 속성인 ASSET_INFM을 args에 맞춰 평단가, 수량을 갱신 및 추가합니다
+        **args
+        -code: string 형식으로 종목코드 ex)'005490'
+        -amount: int형식으로 해당 종목코드의 체결 수량을 의미 
+        -sales_class: string 형식으로 매매구분을 의미
+        -price: 체결단가를 의미
+        **return
+        -None
+        '''
         if not code in self.ASSET_INFM.keys():  
             self.ASSET_INFM[code] = {'평단가': price, '수량': amount}
         elif sales_class == '매수':
@@ -71,12 +80,20 @@ class logSystem:
     
     def write_jounal(self, 
                     inform: 'List[pd.DatetimeIndex, str, int, int, int, str]'):
-        '''BackTesting 클래스 내 존재하는 JOUNAL 속성에 일지를 작성합니다'''
+        '''BackTesting 클래스 내 존재하는 JOUNAL 속성에 일지를 작성합니다
+        **args
+        -inform: List형식으로 Jounal 양식에 맞는 데이터를 의미
+        **return
+        -None'''
         buf = {col: val for col, val in zip(self.JOUNAL.columns, inform)}
         self.JOUNAL = pd.concat([self.JOUNAL, pd.Series(buf).to_frame().T], ignore_index=True)
     
     def update_information(self):
-        '''Jounal Data 전체를 이용하여 portfolio를 갱신합니다'''
+        '''Jounal Data 전체를 이용하여 portfolio를 갱신합니다
+        **args
+        -None
+        **return
+        -None'''
         self.ASSET_INFM.clear()
         self.ECONO_INFORM.drop(self.ECONO_INFORM.index, inplace=True, errors='ignore')
         for date in self.JOUNAL['날짜'].unique():
@@ -107,6 +124,19 @@ class BackTesting(logSystem):
             price: 'float',
             sales_class: 'str',
             used_slippage: 'bool' = False):
+        '''세금 및 수수료를 계산하는 메서드입니다
+        매수시 계산 공식 : 단가금액 * (위탁수수료 + 유관기관수수료)
+        매도시 계산 공식(Slipage X) : 단가금액 * (위탁수수료 + 유관기관수수료 + 증권거래세)
+        매도시 계산 공식(Slipage O) : 단가금액 * (위탁수수료 + 유관기관수수료 + 증권거래세 + Slippage loss)
+        
+        위탁수수료: 0.0140527%, 유관기관수수료: 0.0036396%, 증권거래세: 0.2%, Slippage loss: 1.0%  
+        
+        **args
+        -price: float 형식으로 단가금액을 의미
+        -sales_class: string 형식으로 매매구분을 의미
+        -used_slippage: bool 형식으로 True이면 Slippage Risk 반영됩니다.(0.1%) default=False
+        **return
+        float 형식의 최종 계산 값'''
         commission = 0.0140527 * 0.01 #위탁 수수료
         gov_fee = 0.0036396 * 0.01 #유관기관 수수료
         tax = 0.2 * 0.01  #증권거레세
@@ -118,10 +148,19 @@ class BackTesting(logSystem):
         return round(res, 0)
 
     def upsert_asset(self,
-                code,
-                amount,
-                sales_class,
-                price=None):
+                code: 'str',
+                amount: 'int',
+                sales_class: bool,
+                price = None):
+        '''Backtesting System Class 속성인 ASSET을 args에 맞춰 평단가, 수량을 갱신 및 추가합니다
+        **args
+        -code: string 형식으로 종목코드 ex)'005490'
+        -amount: int형식으로 해당 종목코드의 체결 수량을 의미 
+        -sales_class: string 형식으로 매매구분을 의미
+        -price: 체결단가를 의미
+        **return
+        -None
+        '''
         if not code in self.ASSET.keys():  
             self.ASSET[code] = {'평단가': price, '수량': amount}
         elif sales_class == '매수':
@@ -136,6 +175,10 @@ class BackTesting(logSystem):
                 buy: 'str',
                 sell: 'str',
                 use_slippage: 'bool' = False):
+        '''df에 맞춰 가상 테스트를 실시하는 메서드 입니다
+        진입기준: df 내 buy로 등록된 열의 command 신호에 따라 매수합니다
+        익절매 기준: df 내 buy로 등록된 열의 command 신호에 따라 매도합니다
+        손절매 기준: 종가가 평단가*2*ATR 낮으면 매도합니다 '''
         hd = deepcopy(df)  
         self.ASSET.clear()
         self.JOUNAL.drop(self.JOUNAL.index, inplace=True, errors='ignore')  
