@@ -4,32 +4,40 @@ import pymysql
 import pandas as pd
 
 class StockConnection:
-    def __init__(self):
+    def __init__(self,
+                simulate: 'bool' = False):
         self.APP_KEY = "PSWteYi8gYUyChnKTEvcNXLqguNIRUoFbNfP"
         self.APP_SECRET = 'ZnEPFAvBPKC09eFObRJ1hWqzwRH8tTKTxB4xkCBKBsnUkfROZJ2N4SrwsGj/sKqieHqLJnQWFZyT47K385TBhXDm8toY2tLDRK3dLo10f6B6+CYIqv89crgltD+pxenjfMu1tbivV0UHEEOID42XGoDFpuzD9BjEJ5/95OAr7NkNUVc8v1w='
-        self.URL_BASE = "https://openapivts.koreainvestment.com:29443"
-        self.TOKEN = self.get_key_for_monitor()
+        self.URL_BASE = "https://openapivts.koreainvestment.com:29443" if simulate == True else "https://openapi.koreainvestment.com:9443" 
+        self.TOKEN = self.get_token()
         
-    def get_key_for_monitor(self):
-        '''보안인증키 발급 메서드
-        *보안인증키는 정보 조회시 사용'''
-        headers = {"content-type":"application/json"}
-        body = {"grant_type":"client_credentials", "appkey":self.APP_KEY, "appsecret":self.APP_SECRET}
+    def get_token(self):
+        '''보안인증키(접근토큰) 발급 메서드
+        *보안인증키(접근토큰)는 정보 조회시 사용'''
+        header = {"content-type":"application/json"}
+        body = {"grant_type" : "client_credentials", "appkey" : self.APP_KEY, "appsecret" : self.APP_SECRET}
         url = self.URL_BASE + '/' + 'oauth2/tokenP'
-        res = requests.post(url, headers=headers, data=json.dumps(body))
+        res = requests.post(url, headers=header, data=json.dumps(body))
         return res.json()['access_token']
     
-    def get_key_for_trading(self, data:dict):
-        '''hashkey발급 메서드
-        *hashkey는 거래 체결시 사용'''
-        headers = {"content-type":"application/json", "appkey":self.APP_KEY, "appsecret":self.APP_SECRET}
+    def capsulation_for_trading(self, data:dict):
+        '''체결시 사용하며, 체결양식에 맞는 Data를 capsulation 합니다
+        **args
+        -data: dict형식으로 체결 Data입니다
+        **return
+        -암호화된 data를 반환합니다'''
+        header = {"content-type":"application/json", "appkey":self.APP_KEY, "appsecret":self.APP_SECRET}
         url = self.URL_BASE + '/' + 'uapi/hashkey'
         print(url)
-        res = requests.post(url, headers=headers, data=json.dumps(data))
+        res = requests.post(url, headers=header, data=json.dumps(data))
         return res.json()["HASH"]
     
     #### 국내주식 기간별 시세 (일/주/원/년) 최대 100건 조회가능 
-    def date_price(self, no:str, start:str, end:str, period:str):
+    def date_price(self, 
+                no: 'str', 
+                start: 'str', 
+                end: 'str', 
+                period: 'str' = 'D'):
         '''국내주식기간별시세 조회 메서드
         **input**
         - no: 종목코드 ex)삼성전자->005930
@@ -41,20 +49,20 @@ class StockConnection:
         '''
         path = 'uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice'
         url = f"{self.URL_BASE}/{path}"
-        headers = {"Content-Type":"application/json", 
+        header = {"Content-Type":"application/json", 
                 "authorization": f"Bearer {self.TOKEN}",
                 "appKey":self.APP_KEY,
                 "appSecret":self.APP_SECRET,
                 "tr_id":"FHKST03010100",
             }
-        params = {
+        body = {
                 "fid_cond_mrkt_div_code": "J",
                 "fid_input_date_1": start,
                 "fid_input_date_2": end,
                 "fid_input_iscd": no,
                 "fid_org_adj_prc": "0",
                 "fid_period_div_code":period}
-        res = requests.get(url, headers=headers, params=params)
+        res = requests.get(url, headers=header, params=body)
         return res.json()
     
 class DB_Handle:

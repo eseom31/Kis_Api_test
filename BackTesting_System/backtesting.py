@@ -178,7 +178,7 @@ class BackTesting(logSystem):
         '''df에 맞춰 가상 테스트를 실시하는 메서드 입니다
         진입기준: df 내 buy로 등록된 열의 command 신호에 따라 매수합니다
         익절매 기준: df 내 buy로 등록된 열의 command 신호에 따라 매도합니다
-        손절매 기준: 종가가 평단가*2*ATR 낮으면 매도합니다 '''
+        손절매 기준: 종가가 평단가*2*ATR 보다 낮으면 매도합니다 '''
         hd = deepcopy(df)  
         self.ASSET.clear()
         self.JOUNAL.drop(self.JOUNAL.index, inplace=True, errors='ignore')  
